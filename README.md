@@ -46,7 +46,7 @@ can be upgraded to write mode, in order to prevent deadlocks.
 
 The lock provides synchronous `Enter...()` methods for the different lock modes that block
 until the lock has been acquired, and asynchronous `Enter...Async()` methods that
-"asynchronously block" by returning a
+"block asynchronously" by returning a
 [`Task`](https://docs.microsoft.com/en-us/dotnet/api/system.threading.tasks.task) that
 will complete once the lock has been acquired. 
 
