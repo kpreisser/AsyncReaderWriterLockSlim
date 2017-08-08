@@ -19,8 +19,8 @@ The lock can have different modes:
 
 At a time, any number of *read mode* locks can be active and up to one *upgradeable read mode* lock 
 can be active, while no *write mode* lock (or *upgraded write mode* lock) is active.
-If one *write mode* lock (or *upgraded write mode* lock) is active, no other *read mode* locks (or
-*upgradeable read mode* locks) can be active.
+If a *write mode* lock (or *upgraded write mode* lock) is active, no other *write mode* locks and
+no other *read mode* locks (or *upgradeable read mode* locks) can be active.
 
 When a task or thread ("execution flow") tries to enter a *write mode* lock while at least one
 *read mode* lock is active, it is blocked until the last *read mode* lock is released.
