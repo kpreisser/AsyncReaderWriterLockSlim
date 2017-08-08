@@ -100,6 +100,8 @@ This implementation has the following differences to Nito.AsyncEx'
 	which matches the behavior of `SemaphoreSlim`. <br>
 	To try to acquire the lock without blocking, you can call one of the `Try...` methods and
 	specify a timeout of `0`.
+  * You can downgrade a *write mode* lock to a *read mode* lock by calling
+    `DowngradeWriteLockToReadLock()`.
   * Non-async methods do not require a ThreadPool thread to run the unblock logic; instead all
     code is executed in the thread that called the synchronous method.
 
