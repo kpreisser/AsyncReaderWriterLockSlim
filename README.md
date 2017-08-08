@@ -9,7 +9,7 @@ does **not support recursive locks** (see section Differences).
 ## Lock Modes
 
 The lock can have different modes:
- * **Read mode:** Zero or more *read mode* locks can be active at a time while no *write mode* lock
+ * **Read mode:** One or more *read mode* locks can be active at a time while no *write mode* lock
    is active.
  * **Upgradeable read mode:** Initially like *read mode*, but only one lock in this mode can be active
    at a time. A lock in this mode can be upgraded to *upgraded write mode*.
@@ -18,7 +18,7 @@ The lock can have different modes:
  * **Upgraded write mode:** Like *write mode*, but was upgraded from *upgradeable read mode*.
 
 At a time, any number of *read mode* locks can be active and up to one *upgradeable read mode* lock 
-can be active, while no *write mode* lock (or *upgraded write mode* lock) is active.
+can be active, while no *write mode* lock (or *upgraded write mode* lock) is active. <br>
 If a *write mode* lock (or *upgraded write mode* lock) is active, no other *write mode* locks and
 no other *read mode* locks (or *upgradeable read mode* locks) can be active.
 
@@ -45,14 +45,14 @@ can be upgraded to write mode, in order to prevent deadlocks.
 ## Lock Methods
 
 The lock provides synchronous `Enter...()` methods for the different lock modes that block
-until the lock has been aquired, and asynchronous `Enter...Async()` methods that
+until the lock has been acquired, and asynchronous `Enter...Async()` methods that
 "asynchronously block" by returning a
 [`Task`](https://docs.microsoft.com/en-us/dotnet/api/system.threading.tasks.task) that
-will complete once the lock has been aquired. 
+will complete once the lock has been acquired. 
 
 For each `Enter...()` and `Enter...Async()` method there is also a `TryEnter...()` and
 `TryEnter...Async()` method that allow you to specify an integer time-out, and return a `Boolean` 
-that indicates if the lock could be aquired within that time-out.
+that indicates if the lock could be acquired within that time-out.
 
 You must make sure to call the corresponding `Exit...()` method to release the lock once you
 don't need it anymore.
@@ -60,7 +60,9 @@ don't need it anymore.
 
 ## Differences to ReaderWriterLockSlim
 
-This implementation has the following differences to .NET's `ReaderWriterLockSlim`:
+This implementation has the following differences to .NET's
+[`ReaderWriterLockSlim`](https://docs.microsoft.com/en-us/dotnet/api/system.threading.readerwriterlockslim):
+
  * The lock is not thread-affine, which means one thread can enter the lock, and a different
    thread can release it. This allows you to use the lock in an async method with a `await`
    operator between entering and releasing the lock.
@@ -75,9 +77,32 @@ This implementation has the following differences to .NET's `ReaderWriterLockSli
    recursively enter the lock from the same execution flow.
  * To upgrade and downgrade a lock between *upgradeable mode* and *write mode* (see below),
    you must call the `Upgrade...`and `Downgrade...` methods instead of the
-   `Enter...` and `Exit...` methods.
+   `Enter...` and `Exit...` methods. <br>
    This is the only supported lock upgrade. However, you can additionally downgrade the lock
    from *write mode* to *read mode* or from *upgradeable read mode* to *read mode*.
+
+
+## Differences to Nito.AsyncEx.AsyncReaderWriterLock
+
+This implementation has the following differences to Nito.AsyncEx'
+[`AsyncReaderWriterLock`](https://github.com/StephenCleary/AsyncEx/blob/master/src/Nito.AsyncEx.Coordination/AsyncReaderWriterLock.cs):
+
+  * Instead of methods that return a `IDisposable`, it has `Enter...()` and `Exit...()` methods
+    similar to .NET's `ReaderWriterLockSlim`. However, you can add this functionality by using
+	extension methods.
+  * Additionally to a *read mode* and *write mode* locks, a *upgradeable read lock* is supported
+    that can be upgraded to a *write mode* lock.
+  * Additionally to providing a `CancellationToken` that allows you to cancel the wait operation,
+    you can supply an integer time-out to the `TryEnter...()` methods.
+  * When calling one of the `Enter...()` methods with an already canceled
+    [`CancellationToken`](https://docs.microsoft.com/en-us/dotnet/api/system.threading.cancellationtoken),
+    the method does not try to acquire the lock, but instead throws a `OperationCanceledException`,
+	which matches the behavior of `SemaphoreSlim`. <br>
+	To try to acquire the lock without blocking, you can call one of the `Try...` methods and
+	specify a timeout of `0`.
+  * Non-async methods do not require a ThreadPool thread to run the unblock logic; instead all
+    code is executed in the thread that called the synchronous method.
+
 
 
 ## Additional Infos
@@ -127,7 +152,7 @@ Enter the lock in read mode within an async method:
 private async Task TestReadModeAsync(AsyncReaderWriterLockSlim asyncLock)
 {
     // Asynchronously enter the lock in read mode. The task completes after the lock
-    // has been aquired.
+    // has been acquired.
     await asyncLock.EnterReadLockAsync();
     try
     {

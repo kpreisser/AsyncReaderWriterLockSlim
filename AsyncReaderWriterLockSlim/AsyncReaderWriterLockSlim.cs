@@ -27,7 +27,7 @@ namespace KPreisser
     ///   from write mode to read mode or from upgradeable read mode to read mode.
     ///   
     /// The lock can have different modes:
-    /// - Read mode: Zero or more 'read mode' locks can be active at a time while no 'write mode' lock
+    /// - Read mode: One or more 'read mode' locks can be active at a time while no 'write mode' lock
     ///   is active.
     /// - Upgradeable read mode: Initially like 'read mode', but only one lock in this mode can be active
     ///   at a time. A lock in this mode can be upgraded to 'upgraded write mode'.
