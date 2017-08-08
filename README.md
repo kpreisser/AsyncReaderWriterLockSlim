@@ -24,15 +24,20 @@ no other *read mode* locks (or *upgradeable read mode* locks) can be active.
 
 When a task or thread ("execution flow") tries to enter a *write mode* lock while at least one
 *read mode* lock is active, it is blocked until the last *read mode* lock is released.
+
+When a task or thread tries to enter a *read mode* lock while a *write mode* lock is active,
+it is blocked until the *write mode* lock is released.
+
 If, while other *read mode* locks are active and the current task or thread waits to enter
 the *write mode* lock, another task or thread tries
 to enter a *read mode* lock, it is blocked until
 the current task or thread released the *write mode* lock (or canceled the wait operation), 
 which means writers are favored in this case.
 
-If a task or thread tries to enter a *read mode* lock while a *write mode* lock is active,
-it is blocked until the *write mode* lock is released.
- 
+Also, when a *write mode* lock is released while there are one or more execution flows
+trying to enter a *write mode* lock and also one or more execution flows trying to enter a
+*read mode* lock, writers are favored.
+
 Just like with `ReaderWriterLockSlim`, only a lock that is in *upgradeable read mode*
 can be upgraded to write mode, in order to prevent deadlocks.
 
@@ -45,8 +50,8 @@ until the lock has been aquired, and asynchronous `Enter...Async()` methods that
 [`Task`](https://docs.microsoft.com/en-us/dotnet/api/system.threading.tasks.task) that
 will complete once the lock has been aquired. 
 
-For each `Enter...()` and `Enter...Async()` method there are also `TryEnter...()` and
-`TryEnter...Async()` methods that allow you to specify an integer time-out, and return a `Boolean` 
+For each `Enter...()` and `Enter...Async()` method there is also a `TryEnter...()` and
+`TryEnter...Async()` method that allow you to specify an integer time-out, and return a `Boolean` 
 that indicates if the lock could be aquired within that time-out.
 
 You must make sure to call the corresponding `Exit...()` method to release the lock once you

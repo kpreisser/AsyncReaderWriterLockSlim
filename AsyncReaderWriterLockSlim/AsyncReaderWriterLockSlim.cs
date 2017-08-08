@@ -42,14 +42,19 @@ namespace KPreisser
     /// 
     /// When a task or thread ("execution flow") tries to enter a 'write mode' lock while at least one
     /// 'read mode' lock is active, it is blocked until the last 'read mode' lock is released.
+    /// 
+    /// When a task or thread tries to enter a 'read mode' lock while a 'write mode' lock is active,
+    /// it is blocked until the 'write mode' lock is released.
+    /// 
     /// If, while other 'read mode' locks are active and the current task or thread waits to enter
     /// the 'write mode' lock, another task or thread tries
     /// to enter a 'read mode' lock, it is blocked until
     /// the current task or thread released the 'write mode' lock (or canceled the wait operation), 
     /// which means writers are favored in this case.
     /// 
-    /// If a task or thread tries to enter a 'read mode' lock while a 'write mode' lock is active,
-    /// it is blocked until the 'write mode' lock is released.
+    /// Also, when a 'write mode' lock is released while there are one or more execution flows
+    /// trying to enter a *write mode* lock and also one or more execution flows trying to enter a
+    /// 'read mode' lock, writers are favored.
     /// 
     /// Just like with <see cref="ReaderWriterLockSlim"/>, only a lock that is in 'upgradeable read mode'
     /// can be upgraded to write mode, in order to prevent deadlocks.
@@ -90,7 +95,14 @@ namespace KPreisser
         /// <summary>
         /// The number of currently held read locks.
         /// </summary>
-        private int currentReadLockCount = 0;
+        private long currentReadLockCount;
+
+        /// <summary>
+        /// The number of tasks or threads that intend to wait on the <see cref="writeLockSemaphore"/>.
+        /// This is used to check if the <see cref="currentWriteLockState"/> should already be
+        /// cleaned-up when the write lock is released.
+        /// </summary>
+        private long currentWaitingWriteLockCount;
 
 
         /// <summary>
@@ -113,7 +125,8 @@ namespace KPreisser
         private static int GetRemainingTimeout(int millisecondsTimeout, int initialTickCount)
         {
             return millisecondsTimeout == Timeout.Infinite ? Timeout.Infinite :
-                    (int)Math.Max(0, millisecondsTimeout - unchecked((uint)(Environment.TickCount - initialTickCount)));
+                    (int)Math.Max(0, millisecondsTimeout - unchecked(
+                        (uint)(Environment.TickCount - initialTickCount)));
         }
 
 
@@ -172,7 +185,8 @@ namespace KPreisser
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            int initialTickCount = millisecondsTimeout == Timeout.Infinite ? 0 : Environment.TickCount;
+            int initialTickCount = millisecondsTimeout == Timeout.Infinite ? 0 :
+                    Environment.TickCount;
 
             Monitor.Enter(this.syncRoot);
             try
@@ -193,7 +207,8 @@ namespace KPreisser
                         // Need to wait until the existing write lock is released, then try again.
                         // This may throw an OperationCanceledException.
                         waitResult = existingWriteLockState.WaitingReadLocksSemaphore.Wait(
-                            GetRemainingTimeout(millisecondsTimeout, initialTickCount), cancellationToken);
+                                GetRemainingTimeout(millisecondsTimeout, initialTickCount),
+                                cancellationToken);
                     }
                     finally
                     {
@@ -234,7 +249,8 @@ namespace KPreisser
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            int initialTickCount = millisecondsTimeout == Timeout.Infinite ? 0 : Environment.TickCount;
+            int initialTickCount = millisecondsTimeout == Timeout.Infinite ? 0 :
+                    Environment.TickCount;
 
             Monitor.Enter(this.syncRoot);
             try
@@ -255,7 +271,8 @@ namespace KPreisser
                         // Need to wait until the existing write lock is released, then try again.
                         // This may throw an OperationCanceledException.
                         waitResult = await existingWriteLockState.WaitingReadLocksSemaphore.WaitAsync(
-                            GetRemainingTimeout(millisecondsTimeout, initialTickCount), cancellationToken);
+                                GetRemainingTimeout(millisecondsTimeout, initialTickCount),
+                                cancellationToken);
                     }
                     finally
                     {
@@ -326,10 +343,12 @@ namespace KPreisser
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            int initialTickCount = millisecondsTimeout == Timeout.Infinite ? 0 : Environment.TickCount;
+            int initialTickCount = millisecondsTimeout == Timeout.Infinite ? 0 :
+                    Environment.TickCount;
 
             // Enter the upgradeable lock semaphore before doing anything else.
-            if (!this.upgradeableLockSemaphore.Wait(millisecondsTimeout, cancellationToken))
+            if (!this.upgradeableLockSemaphore.Wait(
+                    millisecondsTimeout, cancellationToken))
                 return false;
 
             // Now enter the read lock that is implied by the upgradeable lock.
@@ -338,7 +357,8 @@ namespace KPreisser
             {
                 // This may throw an OperationCanceledException.
                 waitResult = TryEnterReadLock(
-                        GetRemainingTimeout(millisecondsTimeout, initialTickCount), cancellationToken);
+                        GetRemainingTimeout(millisecondsTimeout, initialTickCount),
+                        cancellationToken);
             }
             finally
             {
@@ -377,10 +397,12 @@ namespace KPreisser
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            int initialTickCount = millisecondsTimeout == Timeout.Infinite ? 0 : Environment.TickCount;
+            int initialTickCount = millisecondsTimeout == Timeout.Infinite ? 0 :
+                    Environment.TickCount;
 
             // Enter the upgradeable lock semaphore before doing anything else.
-            if (!await this.upgradeableLockSemaphore.WaitAsync(millisecondsTimeout, cancellationToken))
+            if (!await this.upgradeableLockSemaphore.WaitAsync(
+                    millisecondsTimeout, cancellationToken))
                 return false;
 
             // Now enter the read lock that is implied by the upgradeable lock.
@@ -389,7 +411,8 @@ namespace KPreisser
             {
                 // This may throw an OperationCanceledException.
                 waitResult = await TryEnterReadLockAsync(
-                        GetRemainingTimeout(millisecondsTimeout, initialTickCount), cancellationToken);
+                        GetRemainingTimeout(millisecondsTimeout, initialTickCount),
+                        cancellationToken);
             }
             finally
             {
@@ -591,9 +614,10 @@ namespace KPreisser
 
                 this.currentReadLockCount--;
 
-                // If we are the last read lock and there's a write lock waiting, we need to
+                // If we are the last read lock and there's an active write lock waiting, we need to
                 // release the read lock release semaphore.
-                if (this.currentReadLockCount == 0 && this.currentWriteLockState != null)
+                if (this.currentReadLockCount == 0 &&
+                        this.currentWriteLockState?.StateIsActive == true)
                     this.readLockReleaseSemaphore.Release();
             }
         }
@@ -659,6 +683,49 @@ namespace KPreisser
                 throw new ObjectDisposedException(nameof(AsyncReaderWriterLockSlim));
         }
 
+        private bool EnterReadLockPreface(out WriteLockState existingWriteLockState)
+        {
+            existingWriteLockState = this.currentWriteLockState;
+            if (existingWriteLockState != null)
+            {
+                // There is already another write lock, so we need to wait until
+                // its WaitingReadLocksSemaphore is released, and then try again.
+                // Ensure that there exists a semaphore on which we can wait.
+                if (existingWriteLockState.WaitingReadLocksSemaphore == null)
+                    existingWriteLockState.WaitingReadLocksSemaphore = new SemaphoreSlim(0);
+
+                // Announce that we will wait on the semaphore.
+                existingWriteLockState.WaitingReadLocksCount++;
+            }
+            else
+            {
+                // No write lock is active, so we don't need to wait.                
+                this.currentReadLockCount++;
+
+                return true;
+            }
+
+            // Exit the monitor, and enter it again after waiting (so it is entered
+            // while the loop starts again). This is so that we only need one instead of
+            // two lock operations for one wait.
+            Monitor.Exit(this.syncRoot);
+
+            return false;
+        }
+
+        private void EnterReadLockPostface(WriteLockState existingLockState)
+        {
+            // Re-enter the monitor.
+            Monitor.Enter(this.syncRoot);
+
+            // Check if we need to dispose the semaphore after the write lock state has
+            // already been cleared.
+            existingLockState.WaitingReadLocksCount--;
+            if (existingLockState.LastWaitingReadLockMustDisposeSemaphore &&
+                    existingLockState.WaitingReadLocksCount == 0)
+                existingLockState.WaitingReadLocksSemaphore.Dispose();
+        }
+
         private bool TryEnterWriteLockInternal(
                 bool upgradeLock,
                 int millisecondsTimeout,
@@ -670,23 +737,31 @@ namespace KPreisser
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            int initialTickCount = millisecondsTimeout == Timeout.Infinite ? 0 : Environment.TickCount;
+            int initialTickCount = millisecondsTimeout == Timeout.Infinite ? 0 :
+                    Environment.TickCount;
 
             // Enter the write lock semaphore before doing anything else.
-            if (!this.writeLockSemaphore.Wait(millisecondsTimeout, cancellationToken))
-                return false;
-            
+            lock (this.syncRoot)
+            {
+                this.currentWaitingWriteLockCount++;
+            }
+
+            bool writeLockWaitResult = false;
             bool waitForReadLocks;
             try
             {
-                // This may throw if upgradeLock is true but no read lock is registered.
-                EnterWriteLockPreface(upgradeLock, out waitForReadLocks);
+                writeLockWaitResult = this.writeLockSemaphore.Wait(
+                        millisecondsTimeout, cancellationToken);
             }
-            catch
+            finally
             {
-                this.writeLockSemaphore.Release();
-                throw;
+                // This may throw if upgradeLock is true but no read lock is registered.
+                // However since this results from an incorrect usage of this lock, we don't
+                // handle this specially.
+                EnterWriteLockPreface(writeLockWaitResult, upgradeLock, out waitForReadLocks);
             }
+            if (!writeLockWaitResult)
+                return false;
 
             // After we set the write lock state, we might need to wait for existing read locks
             // to be released.
@@ -699,7 +774,8 @@ namespace KPreisser
                 {
                     // This may throw an OperationCanceledException.
                     waitResult = this.readLockReleaseSemaphore.Wait(
-                            GetRemainingTimeout(millisecondsTimeout, initialTickCount), cancellationToken);
+                            GetRemainingTimeout(millisecondsTimeout, initialTickCount),
+                            cancellationToken);
                 }
                 finally
                 {
@@ -729,23 +805,31 @@ namespace KPreisser
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            int initialTickCount = millisecondsTimeout == Timeout.Infinite ? 0 : Environment.TickCount;
+            int initialTickCount = millisecondsTimeout == Timeout.Infinite ? 0 :
+                    Environment.TickCount;
 
             // Enter the write lock semaphore before doing anything else.
-            if (!await this.writeLockSemaphore.WaitAsync(millisecondsTimeout, cancellationToken))
-                return false;
-            
+            lock (this.syncRoot)
+            {
+                this.currentWaitingWriteLockCount++;
+            }
+
+            bool writeLockWaitResult = false;
             bool waitForReadLocks;
             try
             {
-                // This may throw if upgradeLock is true but no read lock is registered.
-                EnterWriteLockPreface(upgradeLock, out waitForReadLocks);
+                writeLockWaitResult = await this.writeLockSemaphore.WaitAsync(
+                        millisecondsTimeout, cancellationToken);
             }
-            catch
+            finally
             {
-                this.writeLockSemaphore.Release();
-                throw;
+                // This may throw if upgradeLock is true but no read lock is registered.
+                // However since this results from an incorrect usage of this lock, we don't
+                // handle this specially.
+                EnterWriteLockPreface(writeLockWaitResult, upgradeLock, out waitForReadLocks);
             }
+            if (!writeLockWaitResult)
+                return false;
 
             // After we set the write lock state, we might need to wait for existing read locks
             // to be released.
@@ -758,7 +842,8 @@ namespace KPreisser
                 {
                     // This may throw an OperationCanceledException.
                     waitResult = await this.readLockReleaseSemaphore.WaitAsync(
-                            GetRemainingTimeout(millisecondsTimeout, initialTickCount), cancellationToken);
+                            GetRemainingTimeout(millisecondsTimeout, initialTickCount),
+                            cancellationToken);
                 }
                 finally
                 {
@@ -775,6 +860,47 @@ namespace KPreisser
             }
 
             return true;
+        }
+
+        private void EnterWriteLockPreface(bool writeLockWaitResult, bool upgradeLock, out bool waitForReadLocks)
+        {
+            waitForReadLocks = false;
+
+            lock (this.syncRoot)
+            {
+                this.currentWaitingWriteLockCount--;
+
+                if (writeLockWaitResult)
+                {
+                    if (upgradeLock)
+                    {
+                        // Release the read lock that is implied by the upgradeable lock.
+                        if (this.currentReadLockCount == 0)
+                            throw new InvalidOperationException();
+                        this.currentReadLockCount--;
+                    }
+
+                    // If there's already a write lock state from a previous write lock, we simply
+                    // use it. Otherwise, create a new one.
+                    if (this.currentWriteLockState == null)
+                        this.currentWriteLockState = new WriteLockState();
+
+                    this.currentWriteLockState.StateIsActive = true;
+
+                    // Check if the write lock will need to wait for existing read locks to be
+                    // released.
+                    waitForReadLocks = this.currentReadLockCount > 0;
+                }
+                else if (this.currentWriteLockState?.StateIsActive == false &&
+                        this.currentWaitingWriteLockCount == 0)
+                {
+                    // We were the last write lock and a previous (inactive) write lock state is
+                    // still set, we need to clean it up.
+                    // This could happen e.g. if a write lock downgrades to a read lock and then the
+                    // wait on the writeLockSemaphore times out.
+                    CleanUpWriteLockState();
+                }
+            }
         }
 
         private void HandleEnterWriteLockWaitFailure(bool downgradeLock)
@@ -806,7 +932,28 @@ namespace KPreisser
 
         private void ExitWriteLockCore(bool downgradeLock)
         {
+            if (downgradeLock)
+            {
+                // Enter the read lock which is implied by the upgradeable lock.
+                this.currentReadLockCount++;
+            }
+
+            // If currently no other write lock is waiting, we clean-up the current
+            // write lock state. Otherwise, we set it to incative to priorize waiting writers
+            // over waiting readers.
+            if (this.currentWaitingWriteLockCount == 0)
+                CleanUpWriteLockState();
+            else
+                this.currentWriteLockState.StateIsActive = false;
+
+            // Finally, release the write lock semaphore.
+            this.writeLockSemaphore.Release();
+        }
+
+        private void CleanUpWriteLockState()
+        {
             var writeLockState = this.currentWriteLockState;
+
             if (writeLockState.WaitingReadLocksSemaphore != null)
             {
                 // If there is currently no other task or thread waiting on the semaphore, we can
@@ -818,8 +965,9 @@ namespace KPreisser
                 }
                 else
                 {
-                    // Release the waiting read locks semaphore as often as possible to ensure all other
-                    // waiting tasks or threads are released and can start a new try to get a lock.
+                    // Release the waiting read locks semaphore as often as possible to ensure
+                    // all other waiting tasks or threads are released and can start a new try to
+                    // get a lock.
                     // The semaphore however will only have been created if there actually was at
                     // least one other task or thread trying to get a read lock.
                     writeLockState.WaitingReadLocksSemaphore.Release(int.MaxValue);
@@ -833,87 +981,6 @@ namespace KPreisser
 
             // Clear the write lock state.
             this.currentWriteLockState = null;
-
-            if (downgradeLock)
-            {
-                // Enter the read lock which is implied by the upgradeable lock.
-                this.currentReadLockCount++;
-            }
-
-            // Finallly, release the write lock semaphore.
-            this.writeLockSemaphore.Release();
-        }
-
-        private bool EnterReadLockPreface(out WriteLockState existingWriteLockState)
-        {
-            existingWriteLockState = this.currentWriteLockState;
-            if (existingWriteLockState != null)
-            {
-                // There is already another write lock, so we need to wait until
-                // its WaitingReadLocksSemaphore is released, and then try again.
-                // Ensure that there exists a semaphore on which we can wait.
-                if (existingWriteLockState.WaitingReadLocksSemaphore == null)
-                    existingWriteLockState.WaitingReadLocksSemaphore = new SemaphoreSlim(0);
-
-                // Announce that we will wait on the semaphore.
-                existingWriteLockState.WaitingReadLocksCount++;
-            }
-            else
-            {
-                // No write lock is active, so we don't need to wait.
-                // Need to ensure we don't allow more read locks than int.MaxValue.
-                checked
-                {
-                    this.currentReadLockCount++;
-                }
-
-                return true;
-            }
-
-            // Exit the monitor, and enter it again after waiting (so it is entered
-            // while the loop starts again). This is so that we only need one instead of
-            // two lock operations for one wait.
-            Monitor.Exit(this.syncRoot);
-
-            return false;
-        }
-
-        private void EnterReadLockPostface(WriteLockState existingLockState)
-        {
-            // Re-enter the monitor.
-            Monitor.Enter(this.syncRoot);
-
-            // Check if we need to dispose the semaphore after the write lock state has
-            // already been cleared.
-            existingLockState.WaitingReadLocksCount--;
-            if (existingLockState.LastWaitingReadLockMustDisposeSemaphore &&
-                    existingLockState.WaitingReadLocksCount == 0)
-                existingLockState.WaitingReadLocksSemaphore.Dispose();
-        }
-
-        private void EnterWriteLockPreface(
-                bool upgradeLock,
-                out bool waitForReadLocks)
-        {
-            // Create a new writer lock state.
-            var writeLockState = new WriteLockState();
-
-            lock (this.syncRoot)
-            {
-                if (upgradeLock)
-                {
-                    // Release the read lock that is implied by the upgradeable lock.
-                    if (this.currentReadLockCount == 0)
-                        throw new InvalidOperationException();
-                    this.currentReadLockCount--;
-                }
-
-                this.currentWriteLockState = writeLockState;
-
-                // Check if the write lock will need to wait for existing read locks to be
-                // released.
-                waitForReadLocks = this.currentReadLockCount > 0;
-            }
         }
 
 
@@ -924,6 +991,11 @@ namespace KPreisser
             {
             }
 
+            /// <summary>
+            /// Gets or sets a value that indicates if the state is active. Only when <c>true</c>, the
+            /// <see cref="readLockReleaseSemaphore"/> will be released once the last read lock exits.
+            /// </summary>
+            public bool StateIsActive { get; set; }
 
             /// <summary>
             /// Gets or sets a <see cref="SemaphoreSlim"/> on which new read locks need
