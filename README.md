@@ -3,7 +3,7 @@
 This is an alternative to .NET's
 [`ReaderWriterLockSlim`](https://docs.microsoft.com/en-us/dotnet/api/system.threading.readerwriterlockslim)
 with a similar functionality, but can be used in async methods. Due to its async-readiness, it
-does **not support recursive locks** (see section Differences).
+does **not support recursive locks** (see section [Differences](#differences-to-readerwriterlockslim)).
 
 
 ## Lock Modes
