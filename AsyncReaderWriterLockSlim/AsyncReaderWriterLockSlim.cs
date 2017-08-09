@@ -328,7 +328,7 @@ namespace KPreisser
         /// <param name="millisecondsTimeout">The number of milliseconds to wait, or -1
         /// (<see cref="Timeout.Infinite"/>) to wait indefinitely.</param>
         /// <param name="cancellationToken">The <see cref="CancellationToken"/> to observe.</param>
-        /// <returns><c>true</c> if the lock has been upgraded, otherwise, <c>false</c>.</returns>
+        /// <returns><c>true</c> if the lock has been entered, otherwise, <c>false</c>.</returns>
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="millisecondsTimeout"/> is a negative number
         /// other than -1, which represents an infinite time-out.</exception>
         /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled.</exception>

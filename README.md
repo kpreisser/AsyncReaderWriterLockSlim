@@ -110,7 +110,7 @@ This implementation has the following differences to Nito.AsyncEx'
 ## Additional Infos
 
 The lock internally uses
-[`SemaphoreSlim`](https://docs.microsoft.com/en-us/dotnet/api/system.threading.semaphoreslim)s
+[`SemaphoreSlim`](https://docs.microsoft.com/en-us/dotnet/api/system.threading.semaphoreslim)
 to implement wait functionality.
 
 The code of the `AsyncReaderWriterLockSlim` class has been tested in various scenarios 
