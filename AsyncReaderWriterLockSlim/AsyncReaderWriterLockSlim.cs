@@ -26,13 +26,8 @@ namespace KPreisser
     /// The lock can have different modes:
     /// - Read mode: One or more 'read mode' locks can be active at a time while no 'write mode' lock
     ///   is active.
-    /// - Write Mode: Only one 'write mode' lock can be active at a time while no other
-    ///   'read mode' locks are active.
-    /// 
-    /// At a time, any number of 'read mode' locks can be active, while no 'write mode' lock
-    /// is active.
-    /// If a 'write mode' lock is active, no other 'write mode' locks and
-    /// no other 'read mode' locks can be active.
+    /// - Write Mode: One 'write mode' lock can be active at a time while no other
+    ///   'write mode' locks and no other 'read mode' locks are active.
     /// 
     /// When a task or thread ("execution flow") tries to enter a 'write mode' lock while at least one
     /// 'read mode' lock is active, it is blocked until the last 'read mode' lock is released.
