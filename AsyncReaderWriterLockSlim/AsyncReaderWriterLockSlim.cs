@@ -20,26 +20,19 @@ namespace KPreisser
     /// - Because this class doesn't have thread affinity, recursive locks are not supported (which
     ///   also means they cannot be detected). In order for the lock to work correctly, you must not
     ///   recursively enter the lock from the same execution flow.
-    /// - To upgrade and downgrade a lock between upgradeable mode and write mode, you must call the
-    ///   <see cref="UpgradeUpgradeableReadLockToUpgradedWriteLock(CancellationToken)"/> and
-    ///   <see cref="DowngradeUpgradedWriteLockToUpgradeableReadLock"/> methods instead of the
-    ///   Enter() and Exit() methods.
-    ///   This is the only supported lock upgrade. However, you can additionally downgrade the lock
-    ///   from write mode to read mode or from upgradeable read mode to read mode.
+    /// - The lock does not support upgradeable read mode locks that can be upgraded to a write mode
+    ///   lock, due to the complexity this would add.
     ///   
     /// The lock can have different modes:
     /// - Read mode: One or more 'read mode' locks can be active at a time while no 'write mode' lock
     ///   is active.
-    /// - Upgradeable read mode: Initially like 'read mode', but only one lock in this mode can be active
-    ///   at a time. A lock in this mode can be upgraded to 'upgraded write mode'.
     /// - Write Mode: Only one 'write mode' lock can be active at a time while no other
     ///   'read mode' locks are active.
-    /// - Upgraded write mode: Like 'write mode', but was upgraded from 'upgradeable read mode'.
     /// 
-    /// At a time, any number of 'read mode' locks can be active and up to one 'upgradeable read mode' lock
-    /// can be active, while no 'write mode' lock (or 'upgraded write mode' lock) is active.
-    /// If a 'write mode' lock (or 'upgraded write mode' lock) is active, no other 'write mode' locks and
-    /// no other 'read mode' locks (or 'upgradeable read mode' locks) can be active.
+    /// At a time, any number of 'read mode' locks can be active, while no 'write mode' lock
+    /// is active.
+    /// If a 'write mode' lock is active, no other 'write mode' locks and
+    /// no other 'read mode' locks can be active.
     /// 
     /// When a task or thread ("execution flow") tries to enter a 'write mode' lock while at least one
     /// 'read mode' lock is active, it is blocked until the last 'read mode' lock is released.
@@ -57,9 +50,6 @@ namespace KPreisser
     /// trying to enter a *write mode* lock and also one or more execution flows trying to enter a
     /// 'read mode' lock, writers are favored.
     /// 
-    /// Just like with <see cref="ReaderWriterLockSlim"/>, only a lock that is in 'upgradeable read mode'
-    /// can be upgraded to write mode, in order to prevent deadlocks.
-    /// 
     /// The lock internally uses <see cref="SemaphoreSlim"/>s to implement wait functionality.
     /// </remarks>
     public class AsyncReaderWriterLockSlim : IDisposable
@@ -72,11 +62,6 @@ namespace KPreisser
         /// A <see cref="SemaphoreSlim"/> which is used to manage the write lock.
         /// </summary>
         private readonly SemaphoreSlim writeLockSemaphore = new SemaphoreSlim(1, 1);
-
-        /// <summary>
-        /// A <see cref="SemaphoreSlim"/> which is used to manage the upgradeable lock.
-        /// </summary>
-        private readonly SemaphoreSlim upgradeableLockSemaphore = new SemaphoreSlim(1, 1);
 
         /// <summary>
         /// A <see cref="SemaphoreSlim"/> which a write lock uses to wait until the last
@@ -251,142 +236,6 @@ namespace KPreisser
         }
 
         /// <summary>
-        /// Enters the lock in upgradeable read mode.
-        /// To upgrade the lock to write mode, you can call
-        /// <see cref="UpgradeUpgradeableReadLockToUpgradedWriteLock(CancellationToken)"/>.
-        /// </summary>
-        /// <param name="cancellationToken">The <see cref="CancellationToken"/> to observe.</param>
-        /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled.</exception>
-        /// <exception cref="ObjectDisposedException">The current instance has already been disposed.</exception>
-        public void EnterUpgradeableReadLock(
-                CancellationToken cancellationToken = default(CancellationToken))
-        {
-            TryEnterUpgradeableReadLock(Timeout.Infinite, cancellationToken);
-        }
-
-        /// <summary>
-        /// Asynchronously enters the lock in upgradeable read mode.
-        /// To upgrade the lock to write mode, you can call
-        /// <see cref="UpgradeUpgradeableReadLockToUpgradedWriteLockAsync(CancellationToken)"/>.
-        /// </summary>
-        /// <param name="cancellationToken">The <see cref="CancellationToken"/> to observe.</param>
-        /// <returns>A task that will complete when the lock has been entered.</returns>
-        /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled.</exception>
-        /// <exception cref="ObjectDisposedException">The current instance has already been disposed.</exception>
-        public async Task EnterUpgradeableReadLockAsync(
-                CancellationToken cancellationToken = default(CancellationToken))
-        {
-            await TryEnterUpgradeableReadLockAsync(Timeout.Infinite, cancellationToken);
-        }
-
-        /// <summary>
-        /// Tries to enter the lock in upgradeable read mode, with an optional integer time-out.
-        /// To upgrade the lock to write mode, you can call
-        /// <see cref="TryUpgradeUpgradeableReadLockToUpgradedWriteLock(int, CancellationToken)"/>.
-        /// </summary>
-        /// <param name="millisecondsTimeout">The number of milliseconds to wait, or -1
-        /// (<see cref="Timeout.Infinite"/>) to wait indefinitely.</param>
-        /// <param name="cancellationToken">The <see cref="CancellationToken"/> to observe.</param>
-        /// <returns><c>true</c> if the lock has been entered, otherwise, <c>false</c>.</returns>
-        /// <exception cref="ArgumentOutOfRangeException"><paramref name="millisecondsTimeout"/> is a negative number
-        /// other than -1, which represents an infinite time-out.</exception>
-        /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled.</exception>
-        /// <exception cref="ObjectDisposedException">The current instance has already been disposed.</exception>
-        public bool TryEnterUpgradeableReadLock(
-                int millisecondsTimeout,
-                CancellationToken cancellationToken = default(CancellationToken))
-        {
-            DenyIfDisposed();
-            if (millisecondsTimeout < Timeout.Infinite)
-                throw new ArgumentOutOfRangeException(nameof(millisecondsTimeout));
-
-            cancellationToken.ThrowIfCancellationRequested();
-
-            int initialTickCount = millisecondsTimeout == Timeout.Infinite ? 0 :
-                    Environment.TickCount;
-
-            // Enter the upgradeable lock semaphore before doing anything else.
-            if (!this.upgradeableLockSemaphore.Wait(
-                    millisecondsTimeout, cancellationToken))
-                return false;
-
-            // Now enter the read lock that is implied by the upgradeable lock.
-            bool waitResult = false;
-            try
-            {
-                // This may throw an OperationCanceledException.
-                waitResult = TryEnterReadLock(
-                        GetRemainingTimeout(millisecondsTimeout, initialTickCount),
-                        cancellationToken);
-            }
-            finally
-            {
-                if (!waitResult)
-                {
-                    // Timeout has been exceeded or a OperationCancelledException has
-                    // been thrown.
-                    this.upgradeableLockSemaphore.Release();
-                }
-            }
-
-            return waitResult;
-        }
-
-        /// <summary>
-        /// Tries to asynchronously enter the lock in upgradeable read mode, with an optional integer time-out.
-        /// To upgrade the lock to write mode, you can call
-        /// <see cref="TryUpgradeUpgradeableReadLockToUpgradedWriteLockAsync(int, CancellationToken)"/>.
-        /// </summary>
-        /// <param name="millisecondsTimeout">The number of milliseconds to wait, or -1
-        /// (<see cref="Timeout.Infinite"/>) to wait indefinitely.</param>
-        /// <param name="cancellationToken">The <see cref="CancellationToken"/> to observe.</param>
-        /// <returns>A task that will complete with a result of <c>true</c> if the lock has been entered,
-        /// otherwise with a result of <c>false</c>.</returns>
-        /// <exception cref="ArgumentOutOfRangeException"><paramref name="millisecondsTimeout"/> is a negative number
-        /// other than -1, which represents an infinite time-out.</exception>
-        /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled.</exception>
-        /// <exception cref="ObjectDisposedException">The current instance has already been disposed.</exception>
-        public async Task<bool> TryEnterUpgradeableReadLockAsync(
-                int millisecondsTimeout,
-                CancellationToken cancellationToken = default(CancellationToken))
-        {
-            DenyIfDisposed();
-            if (millisecondsTimeout < Timeout.Infinite)
-                throw new ArgumentOutOfRangeException(nameof(millisecondsTimeout));
-
-            cancellationToken.ThrowIfCancellationRequested();
-
-            int initialTickCount = millisecondsTimeout == Timeout.Infinite ? 0 :
-                    Environment.TickCount;
-
-            // Enter the upgradeable lock semaphore before doing anything else.
-            if (!await this.upgradeableLockSemaphore.WaitAsync(
-                    millisecondsTimeout, cancellationToken))
-                return false;
-
-            // Now enter the read lock that is implied by the upgradeable lock.
-            bool waitResult = false;
-            try
-            {
-                // This may throw an OperationCanceledException.
-                waitResult = await TryEnterReadLockAsync(
-                        GetRemainingTimeout(millisecondsTimeout, initialTickCount),
-                        cancellationToken);
-            }
-            finally
-            {
-                if (!waitResult)
-                {
-                    // Timeout has been exceeded or a OperationCancelledException has
-                    // been thrown.
-                    this.upgradeableLockSemaphore.Release();
-                }
-            }
-
-            return waitResult;
-        }
-
-        /// <summary>
         /// Enters the lock in write mode.
         /// </summary>
         /// <param name="cancellationToken">The <see cref="CancellationToken"/> to observe.</param>
@@ -426,7 +275,64 @@ namespace KPreisser
                 int millisecondsTimeout,
                 CancellationToken cancellationToken = default(CancellationToken))
         {
-            return TryEnterWriteLockInternal(false, millisecondsTimeout, cancellationToken);
+            DenyIfDisposed();
+            if (millisecondsTimeout < Timeout.Infinite)
+                throw new ArgumentOutOfRangeException(nameof(millisecondsTimeout));
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            int initialTickCount = millisecondsTimeout == Timeout.Infinite ? 0 :
+                    Environment.TickCount;
+
+            // Enter the write lock semaphore before doing anything else.
+            lock (this.syncRoot)
+            {
+                this.currentWaitingWriteLockCount++;
+            }
+
+            bool writeLockWaitResult = false;
+            bool waitForReadLocks;
+            try
+            {
+                writeLockWaitResult = this.writeLockSemaphore.Wait(
+                        millisecondsTimeout, cancellationToken);
+            }
+            finally
+            {
+                EnterWriteLockPreface(writeLockWaitResult, out waitForReadLocks);
+            }
+            if (!writeLockWaitResult)
+                return false;
+
+            // After we set the write lock state, we might need to wait for existing read locks
+            // to be released.
+            // In this state, no new read locks can be entered until we release the write lock state.
+            // We only wait one time since only the last active read lock will release the semaphore.    
+            if (waitForReadLocks)
+            {
+                bool waitResult = false;
+                try
+                {
+                    // This may throw an OperationCanceledException.
+                    waitResult = this.readLockReleaseSemaphore.Wait(
+                            GetRemainingTimeout(millisecondsTimeout, initialTickCount),
+                            cancellationToken);
+                }
+                finally
+                {
+                    if (!waitResult)
+                    {
+                        // Timeout has been exceeded or a OperationCancelledException has
+                        // been thrown.
+                        HandleEnterWriteLockWaitFailure();
+                    }
+                }
+
+                if (!waitResult)
+                    return false; // Timeout exceeded
+            }
+
+            return true;
         }
 
         /// <summary>
@@ -441,121 +347,77 @@ namespace KPreisser
         /// other than -1, which represents an infinite time-out.</exception>
         /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled.</exception>
         /// <exception cref="ObjectDisposedException">The current instance has already been disposed.</exception>
-        public Task<bool> TryEnterWriteLockAsync(
+        public async Task<bool> TryEnterWriteLockAsync(
                 int millisecondsTimeout,
                 CancellationToken cancellationToken = default(CancellationToken))
         {
-            return TryEnterWriteLockInternalAsync(false, millisecondsTimeout, cancellationToken);
+            DenyIfDisposed();
+            if (millisecondsTimeout < Timeout.Infinite)
+                throw new ArgumentOutOfRangeException(nameof(millisecondsTimeout));
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            int initialTickCount = millisecondsTimeout == Timeout.Infinite ? 0 :
+                    Environment.TickCount;
+
+            // Enter the write lock semaphore before doing anything else.
+            lock (this.syncRoot)
+            {
+                this.currentWaitingWriteLockCount++;
+            }
+
+            bool writeLockWaitResult = false;
+            bool waitForReadLocks;
+            try
+            {
+                writeLockWaitResult = await this.writeLockSemaphore.WaitAsync(
+                        millisecondsTimeout, cancellationToken);
+            }
+            finally
+            {
+                EnterWriteLockPreface(writeLockWaitResult, out waitForReadLocks);
+            }
+            if (!writeLockWaitResult)
+                return false;
+
+            // After we set the write lock state, we might need to wait for existing read locks
+            // to be released.
+            // In this state, no new read locks can be entered until we release the write lock state.
+            // We only wait one time since only the last active read lock will release the semaphore.    
+            if (waitForReadLocks)
+            {
+                bool waitResult = false;
+                try
+                {
+                    // This may throw an OperationCanceledException.
+                    waitResult = await this.readLockReleaseSemaphore.WaitAsync(
+                            GetRemainingTimeout(millisecondsTimeout, initialTickCount),
+                            cancellationToken);
+                }
+                finally
+                {
+                    if (!waitResult)
+                    {
+                        // Timeout has been exceeded or a OperationCancelledException has
+                        // been thrown.
+                        HandleEnterWriteLockWaitFailure();
+                    }
+                }
+
+                if (!waitResult)
+                    return false; // Timeout exceeded
+            }
+
+            return true;
         }
 
-        /// <summary>
-        /// Upgrades the lock from upgradeable read mode to upgraded write mode.
-        /// You must call
-        /// <see cref="DowngradeUpgradedWriteLockToUpgradeableReadLock"/> before calling
-        /// <see cref="ExitUpgradeableReadLock"/>.
-        /// </summary>
-        /// <param name="cancellationToken">The <see cref="CancellationToken"/> to observe.</param>
-        /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled.</exception>
-        /// <exception cref="ObjectDisposedException">The current instance has already been disposed.</exception>
-        public void UpgradeUpgradeableReadLockToUpgradedWriteLock(
-                CancellationToken cancellationToken = default(CancellationToken))
-        {
-            TryUpgradeUpgradeableReadLockToUpgradedWriteLock(
-                    Timeout.Infinite, cancellationToken);
-        }
-
-        /// <summary>
-        /// Asynchronously upgrades the lock from upgradeable read mode to upgraded write mode.
-        /// You must call
-        /// <see cref="DowngradeUpgradedWriteLockToUpgradeableReadLock"/> before calling
-        /// <see cref="ExitUpgradeableReadLock"/>.
-        /// </summary>
-        /// <param name="cancellationToken">The <see cref="CancellationToken"/> to observe.</param>
-        /// <returns>A task that will complete when the lock has been upgraded.</returns>
-        /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled.</exception>
-        /// <exception cref="ObjectDisposedException">The current instance has already been disposed.</exception>
-        public async Task UpgradeUpgradeableReadLockToUpgradedWriteLockAsync(
-                CancellationToken cancellationToken = default(CancellationToken))
-        {
-            await TryUpgradeUpgradeableReadLockToUpgradedWriteLockAsync(
-                    Timeout.Infinite, cancellationToken);
-        }
-
-        /// <summary>
-        /// Tries to upgrade the lock from upgradeable read mode to upgraded write mode,
-        /// with an optional integer time-out.
-        /// You must call
-        /// <see cref="DowngradeUpgradedWriteLockToUpgradeableReadLock"/> before calling
-        /// <see cref="ExitUpgradeableReadLock"/>.
-        /// </summary>
-        /// <param name="millisecondsTimeout">The number of milliseconds to wait, or -1
-        /// (<see cref="Timeout.Infinite"/>) to wait indefinitely.</param>
-        /// <param name="cancellationToken">The <see cref="CancellationToken"/> to observe.</param>
-        /// <returns><c>true</c> if the lock has been upgraded, otherwise, <c>false</c>.</returns>
-        /// <exception cref="ArgumentOutOfRangeException"><paramref name="millisecondsTimeout"/> is a negative number
-        /// other than -1, which represents an infinite time-out.</exception>
-        /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled.</exception>
-        /// <exception cref="ObjectDisposedException">The current instance has already been disposed.</exception>
-        public bool TryUpgradeUpgradeableReadLockToUpgradedWriteLock(
-                int millisecondsTimeout,
-                CancellationToken cancellationToken = default(CancellationToken))
-        {
-            return TryEnterWriteLockInternal(true, millisecondsTimeout, cancellationToken);
-        }
-
-        /// <summary>
-        /// Tries to asynchronously upgrade the lock from upgradeable read mode to upgraded write mode,
-        /// with an optional integer time-out.
-        /// You must call
-        /// <see cref="DowngradeUpgradedWriteLockToUpgradeableReadLock"/> before calling
-        /// <see cref="ExitUpgradeableReadLock"/>.
-        /// </summary>
-        /// <param name="millisecondsTimeout">The number of milliseconds to wait, or -1
-        /// (<see cref="Timeout.Infinite"/>) to wait indefinitely.</param>
-        /// <param name="cancellationToken">The <see cref="CancellationToken"/> to observe.</param>
-        /// <returns>A task that will complete with a result of <c>true</c> if the lock has been upgraded,
-        /// otherwise with a result of <c>false</c>.</returns>
-        /// <exception cref="ArgumentOutOfRangeException"><paramref name="millisecondsTimeout"/> is a negative number
-        /// other than -1, which represents an infinite time-out.</exception>
-        /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled.</exception>
-        /// <exception cref="ObjectDisposedException">The current instance has already been disposed.</exception>
-        public Task<bool> TryUpgradeUpgradeableReadLockToUpgradedWriteLockAsync(
-                int millisecondsTimeout,
-                CancellationToken cancellationToken = default(CancellationToken))
-        {
-            return TryEnterWriteLockInternalAsync(true, millisecondsTimeout, cancellationToken);
-        }
-
-        /// <summary>
-        /// Downgrades the lock from upgraded write mode to upgradeable read mode.
-        /// </summary>
-        /// <exception cref="ObjectDisposedException">The current instance has already been disposed.</exception>
-        public void DowngradeUpgradedWriteLockToUpgradeableReadLock()
-        {
-            ExitWriteLockInternal(true);
-        }
-
-        /// <summary>
+       /// <summary>
         /// Downgrades the lock from write mode to read mode.
         /// </summary>
         /// <exception cref="ObjectDisposedException">The current instance has already been disposed.</exception>
         public void DowngradeWriteLockToReadLock()
         {
-            // This has the same effect as DowngradeWriteLockToUpgradeableReadLock(),
-            // but the current execution flow should not have the upgradeable lock.
             ExitWriteLockInternal(true);
-        }
-
-        /// <summary>
-        /// Downgrades the lock from upgradeable read mode to read mode.
-        /// </summary>
-        /// <exception cref="ObjectDisposedException">The current instance has already been disposed.</exception>
-        public void DowngradeUpgradeableReadLockToReadLock()
-        {
-            DenyIfDisposed();
-
-            // Release the upgradeable lock semaphore without releasing the read lock.
-            this.upgradeableLockSemaphore.Release();
         }
 
         /// <summary>
@@ -570,19 +432,6 @@ namespace KPreisser
             {
                 ExitReadLockCore();
             }
-        }
-
-        /// <summary>
-        /// Exits upgradeable read mode.
-        /// </summary>
-        /// <exception cref="ObjectDisposedException">The current instance has already been disposed.</exception>
-        public void ExitUpgradeableReadLock()
-        {
-            // Downgrade to a read lock.
-            DowngradeUpgradeableReadLockToReadLock();
-
-            // Exit the read lock that is implied by the upgradeable lock.
-            ExitReadLock();
         }
 
         /// <summary>
@@ -613,8 +462,7 @@ namespace KPreisser
                         throw new InvalidOperationException($"At least one read lock was still active " +
                                 $"while trying to dispose the {nameof(AsyncReaderWriterLockSlim)}.");
                 }
-
-                this.upgradeableLockSemaphore.Dispose();
+                
                 this.writeLockSemaphore.Dispose();
                 this.readLockReleaseSemaphore.Dispose();
             }
@@ -701,143 +549,7 @@ namespace KPreisser
                 this.readLockReleaseSemaphore.Release();
         }
 
-        private bool TryEnterWriteLockInternal(
-                bool upgradeLock,
-                int millisecondsTimeout,
-                CancellationToken cancellationToken = default(CancellationToken))
-        {
-            DenyIfDisposed();
-            if (millisecondsTimeout < Timeout.Infinite)
-                throw new ArgumentOutOfRangeException(nameof(millisecondsTimeout));
-
-            cancellationToken.ThrowIfCancellationRequested();
-
-            int initialTickCount = millisecondsTimeout == Timeout.Infinite ? 0 :
-                    Environment.TickCount;
-
-            // Enter the write lock semaphore before doing anything else.
-            lock (this.syncRoot)
-            {
-                this.currentWaitingWriteLockCount++;
-            }
-
-            bool writeLockWaitResult = false;
-            bool waitForReadLocks;
-            try
-            {
-                writeLockWaitResult = this.writeLockSemaphore.Wait(
-                        millisecondsTimeout, cancellationToken);
-            }
-            finally
-            {
-                // This may throw if upgradeLock is true but no read lock is registered.
-                // However since this results from an incorrect usage of this lock, we don't
-                // handle this specially.
-                EnterWriteLockPreface(writeLockWaitResult, upgradeLock, out waitForReadLocks);
-            }
-            if (!writeLockWaitResult)
-                return false;
-
-            // After we set the write lock state, we might need to wait for existing read locks
-            // to be released.
-            // In this state, no new read locks can be entered until we release the write lock state.
-            // We only wait one time since only the last active read lock will release the semaphore.    
-            if (waitForReadLocks)
-            {
-                bool waitResult = false;
-                try
-                {
-                    // This may throw an OperationCanceledException.
-                    waitResult = this.readLockReleaseSemaphore.Wait(
-                            GetRemainingTimeout(millisecondsTimeout, initialTickCount),
-                            cancellationToken);
-                }
-                finally
-                {
-                    if (!waitResult)
-                    {
-                        // Timeout has been exceeded or a OperationCancelledException has
-                        // been thrown.
-                        HandleEnterWriteLockWaitFailure(upgradeLock);
-                    }
-                }
-
-                if (!waitResult)
-                    return false; // Timeout exceeded
-            }
-
-            return true;
-        }
-
-        private async Task<bool> TryEnterWriteLockInternalAsync(
-                bool upgradeLock,
-                int millisecondsTimeout,
-                CancellationToken cancellationToken = default(CancellationToken))
-        {
-            DenyIfDisposed();
-            if (millisecondsTimeout < Timeout.Infinite)
-                throw new ArgumentOutOfRangeException(nameof(millisecondsTimeout));
-
-            cancellationToken.ThrowIfCancellationRequested();
-
-            int initialTickCount = millisecondsTimeout == Timeout.Infinite ? 0 :
-                    Environment.TickCount;
-
-            // Enter the write lock semaphore before doing anything else.
-            lock (this.syncRoot)
-            {
-                this.currentWaitingWriteLockCount++;
-            }
-
-            bool writeLockWaitResult = false;
-            bool waitForReadLocks;
-            try
-            {
-                writeLockWaitResult = await this.writeLockSemaphore.WaitAsync(
-                        millisecondsTimeout, cancellationToken);
-            }
-            finally
-            {
-                // This may throw if upgradeLock is true but no read lock is registered.
-                // However since this results from an incorrect usage of this lock, we don't
-                // handle this specially.
-                EnterWriteLockPreface(writeLockWaitResult, upgradeLock, out waitForReadLocks);
-            }
-            if (!writeLockWaitResult)
-                return false;
-
-            // After we set the write lock state, we might need to wait for existing read locks
-            // to be released.
-            // In this state, no new read locks can be entered until we release the write lock state.
-            // We only wait one time since only the last active read lock will release the semaphore.    
-            if (waitForReadLocks)
-            {
-                bool waitResult = false;
-                try
-                {
-                    // This may throw an OperationCanceledException.
-                    waitResult = await this.readLockReleaseSemaphore.WaitAsync(
-                            GetRemainingTimeout(millisecondsTimeout, initialTickCount),
-                            cancellationToken);
-                }
-                finally
-                {
-                    if (!waitResult)
-                    {
-                        // Timeout has been exceeded or a OperationCancelledException has
-                        // been thrown.
-                        HandleEnterWriteLockWaitFailure(upgradeLock);
-                    }
-                }
-
-                if (!waitResult)
-                    return false; // Timeout exceeded
-            }
-
-            return true;
-        }
-
-        private void EnterWriteLockPreface(bool writeLockWaitResult, bool upgradeLock, out bool waitForReadLocks)
+        private void EnterWriteLockPreface(bool writeLockWaitResult, out bool waitForReadLocks)
         {
             waitForReadLocks = false;
 
@@ -847,14 +559,6 @@ namespace KPreisser
 
                 if (writeLockWaitResult)
                 {
-                    if (upgradeLock)
-                    {
-                        // Release the read lock that is implied by the upgradeable lock.
-                        if (this.currentReadLockCount == 0)
-                            throw new InvalidOperationException();
-                        this.currentReadLockCount--;
-                    }
-
                     // If there's already a write lock state from a previous write lock, we simply
                     // use it. Otherwise, create a new one.
                     if (this.currentWriteLockState == null)
@@ -878,7 +582,7 @@ namespace KPreisser
             }
         }
 
-        private void HandleEnterWriteLockWaitFailure(bool downgradeLock)
+        private void HandleEnterWriteLockWaitFailure()
         {
             lock (this.syncRoot)
             {
@@ -888,7 +592,7 @@ namespace KPreisser
                 if (this.readLockReleaseSemaphore.CurrentCount > 0)
                     this.readLockReleaseSemaphore.Wait();
 
-                ExitWriteLockCore(downgradeLock);
+                ExitWriteLockCore(false);
             }
         }
 
@@ -909,7 +613,7 @@ namespace KPreisser
         {
             if (downgradeLock)
             {
-                // Enter the read lock which is implied by the upgradeable lock.
+                // Enter the read lock while releasing the write lock.
                 this.currentReadLockCount++;
             }
 
