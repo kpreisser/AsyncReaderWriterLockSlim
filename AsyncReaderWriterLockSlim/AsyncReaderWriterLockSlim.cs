@@ -406,7 +406,7 @@ namespace KPreisser
             return true;
         }
 
-       /// <summary>
+        /// <summary>
         /// Downgrades the lock from write mode to read mode.
         /// </summary>
         /// <exception cref="ObjectDisposedException">The current instance has already been disposed.</exception>
@@ -457,7 +457,7 @@ namespace KPreisser
                         throw new InvalidOperationException($"At least one read lock was still active " +
                                 $"while trying to dispose the {nameof(AsyncReaderWriterLockSlim)}.");
                 }
-                
+
                 this.writeLockSemaphore.Dispose();
                 this.readLockReleaseSemaphore.Dispose();
             }
@@ -643,7 +643,7 @@ namespace KPreisser
                 {
                     // Directly mark the read locks as entered.
                     this.currentReadLockCount += writeLockState.WaitingReadLocksCount;
-                    
+
                     // Release the waiting read locks semaphore as often as possible to ensure
                     // all other waiting tasks or threads are released and can start a new try to
                     // get a lock.
@@ -669,7 +669,7 @@ namespace KPreisser
             /// Gets or sets a value that indicates if the state is active. Only when <c>true</c>, the
             /// <see cref="readLockReleaseSemaphore"/> will be released once the last read lock exits.
             /// </summary>
-            public bool StateIsActive { get; set; }            
+            public bool StateIsActive { get; set; }
 
             /// <summary>
             /// Gets or sets a value that indicates if the write lock associated with this
@@ -680,7 +680,7 @@ namespace KPreisser
             /// <see cref="WaitingReadLocksSemaphore"/> semaphore.
             /// </summary>
             public bool StateIsReleased { get; set; }
-            
+
             /// <summary>
             /// Gets or sets a <see cref="SemaphoreSlim"/> on which new read locks need
             /// to wait until the existing write lock is released. The <see cref="SemaphoreSlim"/>

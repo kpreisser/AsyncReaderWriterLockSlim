@@ -46,6 +46,9 @@ that indicates if the lock could be acquired within that time-out.
 You must make sure to call the corresponding `Exit...()` method to release the lock once you
 don't need it anymore.
 
+Additionally, the `AsyncReaderWriterLockSlimExtension` class contains extension methods
+that return an `IDisposable` so that the lock can be used with a `using` block.
+
 
 ## Differences to ReaderWriterLockSlim
 
@@ -74,8 +77,8 @@ This implementation has the following differences to Nito.AsyncEx'
 [`AsyncReaderWriterLock`](https://github.com/StephenCleary/AsyncEx/blob/master/src/Nito.AsyncEx.Coordination/AsyncReaderWriterLock.cs):
 
   * Instead of methods that return a `IDisposable`, it has `Enter...()` and `Exit...()` methods
-    similar to .NET's `ReaderWriterLockSlim`. However, you can add this functionality by using
-	extension methods.
+    similar to .NET's `ReaderWriterLockSlim`. However, the class `AsyncReaderWriterLockSlimExtension`
+	provides extension methods that return a `IDisposable`.
   * Additionally to providing a `CancellationToken` that allows you to cancel the wait operation,
     you can supply an integer time-out to the `TryEnter...()` methods.
   * When calling one of the `Enter...()` methods with an already canceled
@@ -138,6 +141,24 @@ private async Task TestReadModeAsync(AsyncReaderWriterLockSlim asyncLock)
     finally
     {
         asyncLock.ExitReadLock();
+    }
+}
+```
+
+Enter the lock in read mode within an async method within an `using` block:
+
+```c#
+private async Task TestReadModeAsync(AsyncReaderWriterLockSlim asyncLock)
+{
+    // Asynchronously enter the lock in read mode. The task completes after the lock
+    // has been acquired.
+    // As the Get...() methods return a IDisposeable, you can use the lock within an
+    // "using" block.
+    using (var myLock = await asyncLock.GetReadLockAsync())
+    {
+        // Use Task.Delay to simulate asynchronous work, which means a different thread
+        // might continue execution after this point.
+        await Task.Delay(200);
     }
 }
 ```
