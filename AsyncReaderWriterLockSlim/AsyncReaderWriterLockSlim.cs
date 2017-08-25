@@ -280,24 +280,22 @@ namespace KPreisser
                     Environment.TickCount;
 
             // Enter the write lock semaphore before doing anything else.
-            lock (this.syncRoot)
-            {
-                this.currentWaitingWriteLockCount++;
-            }
-
-            bool writeLockWaitResult = false;
             bool waitForReadLocks;
-            try
+            if (!EnterWriteLockPreface(out waitForReadLocks))
             {
-                writeLockWaitResult = this.writeLockSemaphore.Wait(
-                        millisecondsTimeout, cancellationToken);
+                bool writeLockWaitResult = false;
+                try
+                {
+                    writeLockWaitResult = this.writeLockSemaphore.Wait(
+                            millisecondsTimeout, cancellationToken);
+                }
+                finally
+                {
+                    EnterWriteLockPostface(writeLockWaitResult, out waitForReadLocks);
+                }
+                if (!writeLockWaitResult)
+                    return false;
             }
-            finally
-            {
-                EnterWriteLockPreface(writeLockWaitResult, out waitForReadLocks);
-            }
-            if (!writeLockWaitResult)
-                return false;
 
             // After we set the write lock state, we might need to wait for existing read locks
             // to be released.
@@ -356,24 +354,22 @@ namespace KPreisser
                     Environment.TickCount;
 
             // Enter the write lock semaphore before doing anything else.
-            lock (this.syncRoot)
-            {
-                this.currentWaitingWriteLockCount++;
-            }
-
-            bool writeLockWaitResult = false;
             bool waitForReadLocks;
-            try
+            if (!EnterWriteLockPreface(out waitForReadLocks))
             {
-                writeLockWaitResult = await this.writeLockSemaphore.WaitAsync(
-                        millisecondsTimeout, cancellationToken);
+                bool writeLockWaitResult = false;
+                try
+                {
+                    writeLockWaitResult = await this.writeLockSemaphore.WaitAsync(
+                            millisecondsTimeout, cancellationToken);
+                }
+                finally
+                {
+                    EnterWriteLockPostface(writeLockWaitResult, out waitForReadLocks);
+                }
+                if (!writeLockWaitResult)
+                    return false;
             }
-            finally
-            {
-                EnterWriteLockPreface(writeLockWaitResult, out waitForReadLocks);
-            }
-            if (!writeLockWaitResult)
-                return false;
 
             // After we set the write lock state, we might need to wait for existing read locks
             // to be released.
@@ -544,7 +540,29 @@ namespace KPreisser
                 this.readLockReleaseSemaphore.Release();
         }
 
-        private void EnterWriteLockPreface(bool writeLockWaitResult, out bool waitForReadLocks)
+        private bool EnterWriteLockPreface(out bool waitForReadLocks)
+        {
+            waitForReadLocks = false;
+
+            lock (this.syncRoot)
+            {
+                this.currentWaitingWriteLockCount++;
+
+                // Check if we can immediately acquire the write lock semaphore without
+                // releasing the lock on syncroot.
+                if (this.writeLockSemaphore.CurrentCount > 0 && this.writeLockSemaphore.Wait(0))
+                {
+                    // Directly call the postface method.
+                    EnterWriteLockPostface(true, out waitForReadLocks);
+
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private void EnterWriteLockPostface(bool writeLockWaitResult, out bool waitForReadLocks)
         {
             waitForReadLocks = false;
 
