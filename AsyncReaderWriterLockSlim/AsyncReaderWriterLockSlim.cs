@@ -553,7 +553,7 @@ namespace KPreisser
                 if (this.writeLockSemaphore.CurrentCount > 0 && this.writeLockSemaphore.Wait(0))
                 {
                     // Directly call the postface method.
-                    EnterWriteLockPostface(true, out waitForReadLocks);
+                    EnterWriteLockPostface(true, out waitForReadLocks, false);
 
                     return true;
                 }
@@ -562,11 +562,16 @@ namespace KPreisser
             return false;
         }
 
-        private void EnterWriteLockPostface(bool writeLockWaitResult, out bool waitForReadLocks)
+        private void EnterWriteLockPostface(
+                bool writeLockWaitResult,
+                out bool waitForReadLocks,
+                bool getLock = true)
         {
             waitForReadLocks = false;
 
-            lock (this.syncRoot)
+            if (getLock)
+                Monitor.Enter(this.syncRoot);
+            try
             {
                 this.currentWaitingWriteLockCount--;
 
@@ -592,6 +597,11 @@ namespace KPreisser
                     // wait on the writeLockSemaphore times out.
                     ReleaseWriteLockState();
                 }
+            }
+            finally
+            {
+                if (getLock)
+                    Monitor.Exit(this.syncRoot);
             }
         }
 
