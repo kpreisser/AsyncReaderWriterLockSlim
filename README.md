@@ -85,8 +85,8 @@ This implementation has the following differences to Nito.AsyncEx'
     [`CancellationToken`](https://docs.microsoft.com/en-us/dotnet/api/system.threading.cancellationtoken),
     the method does not try to acquire the lock, but instead throws a `OperationCanceledException`,
 	which matches the behavior of `SemaphoreSlim`. <br>
-	To try to acquire the lock without blocking, you can call one of the `Try...` methods and
-	specify a timeout of `0`.
+	To try to acquire the lock without blocking, you can call one of the `Try...` methods without
+	specifying a timeout (or specify a timeout of `0`).
   * You can downgrade a *write mode* lock to a *read mode* lock by calling
     `DowngradeWriteLockToReadLock()`.
   * Non-async methods do not require a ThreadPool thread to run the unblock logic; instead all
