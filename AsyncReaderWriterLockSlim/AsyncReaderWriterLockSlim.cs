@@ -157,7 +157,7 @@ namespace KPreisser
         /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled.</exception>
         /// <exception cref="ObjectDisposedException">The current instance has already been disposed.</exception>
         public bool TryEnterReadLock(
-                int millisecondsTimeout,
+                int millisecondsTimeout = 0,
                 CancellationToken cancellationToken = default(CancellationToken))
         {
             DenyIfDisposed();
@@ -200,7 +200,7 @@ namespace KPreisser
         /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled.</exception>
         /// <exception cref="ObjectDisposedException">The current instance has already been disposed.</exception>
         public async Task<bool> TryEnterReadLockAsync(
-                int millisecondsTimeout,
+                int millisecondsTimeout = 0,
                 CancellationToken cancellationToken = default(CancellationToken))
         {
             DenyIfDisposed();
@@ -267,7 +267,7 @@ namespace KPreisser
         /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled.</exception>
         /// <exception cref="ObjectDisposedException">The current instance has already been disposed.</exception>
         public bool TryEnterWriteLock(
-                int millisecondsTimeout,
+                int millisecondsTimeout = 0,
                 CancellationToken cancellationToken = default(CancellationToken))
         {
             DenyIfDisposed();
@@ -341,7 +341,7 @@ namespace KPreisser
         /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled.</exception>
         /// <exception cref="ObjectDisposedException">The current instance has already been disposed.</exception>
         public async Task<bool> TryEnterWriteLockAsync(
-                int millisecondsTimeout,
+                int millisecondsTimeout = 0,
                 CancellationToken cancellationToken = default(CancellationToken))
         {
             DenyIfDisposed();
