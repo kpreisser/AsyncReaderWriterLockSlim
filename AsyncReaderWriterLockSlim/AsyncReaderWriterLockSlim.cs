@@ -677,7 +677,7 @@ namespace KPreisser
                     // get a lock.
                     // The semaphore however will only have been created if there actually was at
                     // least one other task or thread trying to get a read lock.
-                    writeLockState.WaitingReadLocksSemaphore.Release(int.MaxValue);
+                    writeLockState.WaitingReadLocksSemaphore.Release(writeLockState.WaitingReadLocksCount);
                 }
             }
 
