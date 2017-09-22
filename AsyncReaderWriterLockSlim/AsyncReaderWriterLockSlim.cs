@@ -167,8 +167,7 @@ namespace KPreisser
             cancellationToken.ThrowIfCancellationRequested();
 
             // Check if we can enter the lock directly.
-            WriteLockState existingWriteLockState;
-            if (EnterReadLockPreface(out existingWriteLockState))
+            if (EnterReadLockPreface(out var existingWriteLockState))
                 return true;
 
             bool waitResult = false;
@@ -210,8 +209,7 @@ namespace KPreisser
             cancellationToken.ThrowIfCancellationRequested();
 
             // Check if we can enter the lock directly.
-            WriteLockState existingWriteLockState;
-            if (EnterReadLockPreface(out existingWriteLockState))
+            if (EnterReadLockPreface(out var existingWriteLockState))
                 return true;
 
             bool waitResult = false;
@@ -280,8 +278,7 @@ namespace KPreisser
                     Environment.TickCount;
 
             // Enter the write lock semaphore before doing anything else.
-            bool waitForReadLocks;
-            if (!EnterWriteLockPreface(out waitForReadLocks))
+            if (!EnterWriteLockPreface(out bool waitForReadLocks))
             {
                 bool writeLockWaitResult = false;
                 try
@@ -354,8 +351,7 @@ namespace KPreisser
                     Environment.TickCount;
 
             // Enter the write lock semaphore before doing anything else.
-            bool waitForReadLocks;
-            if (!EnterWriteLockPreface(out waitForReadLocks))
+            if (!EnterWriteLockPreface(out bool waitForReadLocks))
             {
                 bool writeLockWaitResult = false;
                 try
