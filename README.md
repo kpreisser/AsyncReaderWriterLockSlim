@@ -76,9 +76,9 @@ This implementation has the following differences to .NET's
 This implementation has the following differences to Nito.AsyncEx'
 [`AsyncReaderWriterLock`](https://github.com/StephenCleary/AsyncEx/blob/master/src/Nito.AsyncEx.Coordination/AsyncReaderWriterLock.cs):
 
-  * Instead of methods that return a `IDisposable`, it has `Enter...()` and `Exit...()` methods
+  * Instead of methods that return an `IDisposable`, it has `Enter...()` and `Exit...()` methods
     similar to .NET's `ReaderWriterLockSlim`. However, the class `AsyncReaderWriterLockSlimExtension`
-	provides extension methods that return a `IDisposable`.
+	provides extension methods that return an `IDisposable`.
   * Additionally to providing a `CancellationToken` that allows you to cancel the wait operation,
     you can supply an integer time-out to the `TryEnter...()` methods.
   * When calling one of the `Enter...()` methods with an already canceled

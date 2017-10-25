@@ -87,7 +87,7 @@ namespace KPreisser
 
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="ReaderWriterLockSlim"/> class.
+        /// Initializes a new instance of the <see cref="AsyncReaderWriterLockSlim"/> class.
         /// </summary>
         public AsyncReaderWriterLockSlim()
             : base()
