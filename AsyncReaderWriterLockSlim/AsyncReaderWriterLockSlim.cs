@@ -139,10 +139,10 @@ namespace KPreisser
         /// <returns>A task that will complete when the lock has been entered.</returns>
         /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled.</exception>
         /// <exception cref="ObjectDisposedException">The current instance has already been disposed.</exception>
-        public async Task EnterReadLockAsync(
+        public Task EnterReadLockAsync(
                 CancellationToken cancellationToken = default(CancellationToken))
         {
-            await TryEnterReadLockAsync(Timeout.Infinite, cancellationToken);
+            return TryEnterReadLockAsync(Timeout.Infinite, cancellationToken);
         }
 
         /// <summary>
@@ -247,10 +247,10 @@ namespace KPreisser
         /// <returns>A task that will complete when the lock has been entered.</returns>
         /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled.</exception>
         /// <exception cref="ObjectDisposedException">The current instance has already been disposed.</exception>
-        public async Task EnterWriteLockAsync(
+        public Task EnterWriteLockAsync(
                 CancellationToken cancellationToken = default(CancellationToken))
         {
-            await TryEnterWriteLockAsync(Timeout.Infinite, cancellationToken);
+            return TryEnterWriteLockAsync(Timeout.Infinite, cancellationToken);
         }
 
         /// <summary>

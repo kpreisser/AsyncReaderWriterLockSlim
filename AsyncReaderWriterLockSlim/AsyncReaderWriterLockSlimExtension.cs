@@ -255,14 +255,8 @@ namespace KPreisser
 
             public bool IsWriteLock
             {
-                get
-                {
-                    return this.isWriteLock;
-                }
-                set
-                {
-                    this.isWriteLock = value;
-                }
+                get => this.isWriteLock;
+                set => this.isWriteLock = value;
             }
 
             public bool IsDisposed => this.isDisposed;
