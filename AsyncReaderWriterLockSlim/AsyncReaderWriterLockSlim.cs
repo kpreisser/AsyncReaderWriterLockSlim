@@ -668,9 +668,8 @@ namespace KPreisser
                     // Directly mark the read locks as entered.
                     this.currentReadLockCount += writeLockState.WaitingReadLocksCount;
 
-                    // Release the waiting read locks semaphore as often as possible to ensure
-                    // all other waiting tasks or threads are released and can start a new try to
-                    // get a lock.
+                    // Release the waiting read locks semaphore as often as needed to ensure
+                    // all other waiting tasks or threads are released and get the read lock.
                     // The semaphore however will only have been created if there actually was at
                     // least one other task or thread trying to get a read lock.
                     writeLockState.WaitingReadLocksSemaphore.Release(writeLockState.WaitingReadLocksCount);
