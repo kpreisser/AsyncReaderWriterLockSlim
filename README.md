@@ -93,7 +93,7 @@ This implementation has the following differences to Nito.AsyncEx'
     code is executed in the thread that called the synchronous method.
   * The lock is not *fair* ([just as the underlying `SemaphoreSlim`](https://github.com/dotnet/corefx/issues/13584)), which means
     there is no guarantee in which order threads will acquire the lock (if multiple threads want to get a lock at the
-    same time). This is because fairness can lead to problems like lock convoys, and shouldn't be necessary in most cases.
+    same time). Fairness can actually lead to problems like lock convoys, and shouldn't be needed in most cases.
   * Consider the following scenario: Thread A holds a read lock. During that time, Thread B tries to
     get a write lock but cancels the wait operation after a specific time (e.g. by specifying a
 	timeout or using a `CancellationToken`). Before Thread B cancels the wait operation, Thread C tries to
