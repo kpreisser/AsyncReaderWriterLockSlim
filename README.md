@@ -111,9 +111,6 @@ The lock internally uses
 [`SemaphoreSlim`](https://docs.microsoft.com/en-us/dotnet/api/system.threading.semaphoreslim)
 to implement wait functionality.
 
-The code of the `AsyncReaderWriterLockSlim` class has been tested in various scenarios 
-to ensure it works correctly.
-
 
 ## API Surface
 
