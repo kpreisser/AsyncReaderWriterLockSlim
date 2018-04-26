@@ -90,10 +90,13 @@ This implementation has the following differences to Nito.AsyncEx'
   * You can downgrade a *write mode* lock to a *read mode* lock by calling
     `DowngradeWriteLockToReadLock()`.
   * Non-async methods do not require a ThreadPool thread to run the unblock logic; instead all
-    code is executed in the thread that called the synchronous method.
-  * The lock is not *fair* ([just as the underlying `SemaphoreSlim`](https://github.com/dotnet/corefx/issues/13584)), which means
-    there is no guarantee in which order threads will acquire the lock (if multiple threads want to get a lock at the
-    same time). Fairness can actually lead to problems like lock convoys, and shouldn't be needed in most cases.
+    code is executed in the thread that called the synchronous method.<br>
+	This means e.g. synchronous methods will still work even
+	if the ThreadPool (used for async task continuations) is currently exhausted.
+  * The lock is not *fair* ([just as the underlying `SemaphoreSlim`](https://github.com/dotnet/corefx/issues/13584)),
+    which means there is no guarantee in which order threads (or tasks) will acquire the lock (if
+    multiple threads want to get a write lock at the same time).<br>
+	Fairness can actually lead to problems like lock convoys, and shouldn't be needed in most cases.
   * Consider the following scenario: Thread A holds a read lock. During that time, Thread B tries to
     get a write lock but cancels the wait operation after a specific time (e.g. by specifying a
 	timeout or using a `CancellationToken`). Before Thread B cancels the wait operation, Thread C tries to
