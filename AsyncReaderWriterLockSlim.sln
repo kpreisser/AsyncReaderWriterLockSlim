@@ -3,7 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.26430.16
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AsyncReaderWriterLockSlim", "AsyncReaderWriterLockSlim\AsyncReaderWriterLockSlim.csproj", "{B4267FCF-72BE-469E-BE0E-FA6EED239D35}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AsyncReaderWriterLockSlim", "AsyncReaderWriterLockSlim\AsyncReaderWriterLockSlim.csproj", "{B4267FCF-72BE-469E-BE0E-FA6EED239D35}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AsyncReaderWriterLockSlim.UnitTests", "AsyncReaderWriterLockSlim.UnitTests\AsyncReaderWriterLockSlim.UnitTests.csproj", "{6DEA1690-4A13-45AD-A2CA-137D10C8BE62}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,8 +17,15 @@ Global
 		{B4267FCF-72BE-469E-BE0E-FA6EED239D35}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B4267FCF-72BE-469E-BE0E-FA6EED239D35}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B4267FCF-72BE-469E-BE0E-FA6EED239D35}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6DEA1690-4A13-45AD-A2CA-137D10C8BE62}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6DEA1690-4A13-45AD-A2CA-137D10C8BE62}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6DEA1690-4A13-45AD-A2CA-137D10C8BE62}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6DEA1690-4A13-45AD-A2CA-137D10C8BE62}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {B5462186-EAD7-4DE8-A8E1-897842347051}
 	EndGlobalSection
 EndGlobal
