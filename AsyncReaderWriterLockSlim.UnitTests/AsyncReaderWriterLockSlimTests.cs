@@ -98,8 +98,42 @@ namespace KPreisser.LockTests
         {
             var myLock = new AsyncReaderWriterLockSlim();
 
-            // Should throw without entering the lock.
-            myLock.EnterReadLock(new CancellationToken(true));
+            try
+            {
+                // Should throw without entering the lock.
+                myLock.EnterReadLock(new CancellationToken(true));
+            }
+            catch
+            {
+                // Check that the read lock actually was not entered.
+                Assert.IsTrue(myLock.TryEnterWriteLock(0));
+
+                throw;
+            }
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(OperationCanceledException))]
+        public void ThrowsOperationCanceledExceptionAfterWait()
+        {
+            var myLock = new AsyncReaderWriterLockSlim();
+
+            myLock.EnterReadLock();
+
+            try
+            {
+                using (var cts = new CancellationTokenSource(100))
+                {
+                    myLock.EnterWriteLock(cts.Token);
+                }
+            }
+            catch
+            {
+                // Check that we can now enter another read lock.
+                Assert.IsTrue(myLock.TryEnterReadLock(0));
+
+                throw;
+            }
         }
 
         [TestMethod]
