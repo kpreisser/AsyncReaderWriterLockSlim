@@ -77,7 +77,7 @@ namespace KPreisser.LockTests
         }
 
         [TestMethod]
-        public async Task CheckMixedSyncAsync()
+        public async Task MixedSyncAndAsync()
         {
             var myLock = new AsyncReaderWriterLockSlim();
 
@@ -137,7 +137,7 @@ namespace KPreisser.LockTests
         }
 
         [TestMethod]
-        public async Task CheckWriteTakesPriorityOverRead1()
+        public async Task WriteTakesPriorityOverRead1()
         {
             var myLock = new AsyncReaderWriterLockSlim();
 
@@ -149,7 +149,7 @@ namespace KPreisser.LockTests
             {
                 var enterWriteLockTask = myLock.EnterWriteLockAsync(cts.Token);
 
-                Assert.IsFalse(await myLock.TryEnterReadLockAsync(0));
+                Assert.IsFalse(myLock.TryEnterReadLock(0));
 
                 cts.Cancel();
                 try
@@ -167,7 +167,7 @@ namespace KPreisser.LockTests
         }
 
         [TestMethod]
-        public async Task CheckWriteTakesPriorityOverRead2()
+        public async Task WriteTakesPriorityOverRead2()
         {
             var myLock = new AsyncReaderWriterLockSlim();
 
@@ -193,7 +193,7 @@ namespace KPreisser.LockTests
         }
 
         [TestMethod]
-        public async Task CheckReleasingOneOfTwoReadLocksDoesNotReleaseWaitingWriteAndReadLocks()
+        public async Task ReleasingOneOfTwoReadLocksDoesNotReleaseWaitingWriteAndReadLocks()
         {
             var myLock = new AsyncReaderWriterLockSlim();
 
@@ -213,7 +213,28 @@ namespace KPreisser.LockTests
         }
 
         [TestMethod]
-        public void CheckMultipleThreads()
+        public void DowngradeLockAllowsReadLock()
+        {
+            var myLock = new AsyncReaderWriterLockSlim();
+
+            myLock.EnterWriteLock();
+
+            Assert.IsFalse(myLock.TryEnterWriteLock(0));
+            Assert.IsFalse(myLock.TryEnterReadLock(0));
+
+            // After downgrading the lock and after the try to get the write lock is canceled,
+            // it should be possible to enter another read lock.
+            myLock.DowngradeWriteLockToReadLock();
+
+            Assert.IsFalse(myLock.TryEnterWriteLock(0));
+            Assert.IsTrue(myLock.TryEnterReadLock(0));
+
+            myLock.ExitReadLock();
+            myLock.ExitReadLock();
+        }
+
+        [TestMethod]
+        public void MultipleThreads()
         {
             var myLock = new AsyncReaderWriterLockSlim();
 
@@ -238,7 +259,7 @@ namespace KPreisser.LockTests
         }
 
         [TestMethod]
-        public void CheckMultipleThreadsAndTasks()
+        public void MultipleThreadsAndTasks()
         {
             var myLock = new AsyncReaderWriterLockSlim();
             int readLocksEntered = 0;
