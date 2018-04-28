@@ -98,7 +98,7 @@ namespace KPreisser.LockTests
         {
             var myLock = new AsyncReaderWriterLockSlim();
 
-            myLock.EnterWriteLock();
+            // Should throw without entering the lock.
             myLock.EnterReadLock(new CancellationToken(true));
         }
 
