@@ -10,10 +10,17 @@ namespace KPreisser.LockTests
     [TestClass]
     public class AsyncReaderWriterLockSlimTests
     {
+        public AsyncReaderWriterLockSlimTests()
+            : base()
+        {
+        }
+
+
         [TestMethod]
         public void CanEnterLocksSync()
         {
             var myLock = new AsyncReaderWriterLockSlim();
+
             myLock.EnterReadLock();
             Assert.IsTrue(myLock.TryEnterReadLock(0));
             Assert.IsFalse(myLock.TryEnterWriteLock(0));
@@ -30,6 +37,7 @@ namespace KPreisser.LockTests
         public async Task CanEnterLocksAync()
         {
             var myLock = new AsyncReaderWriterLockSlim();
+
             await myLock.EnterReadLockAsync();
             Assert.IsTrue(await myLock.TryEnterReadLockAsync(0));
             Assert.IsFalse(await myLock.TryEnterWriteLockAsync(0));
@@ -40,6 +48,32 @@ namespace KPreisser.LockTests
             Assert.IsFalse(await myLock.TryEnterReadLockAsync(0));
             Assert.IsFalse(await myLock.TryEnterWriteLockAsync(0));
             myLock.ExitWriteLock();
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(InvalidOperationException))]
+        public void ThrowsOnIncorrectReadLockRelease()
+        {
+            var myLock = new AsyncReaderWriterLockSlim();
+
+            myLock.EnterReadLock();
+            myLock.EnterReadLock();
+
+            myLock.ExitReadLock();
+            myLock.ExitReadLock();
+            myLock.ExitReadLock(); // should throw
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(InvalidOperationException))]
+        public void ThrowsOnIncorrectWriteLockRelease()
+        {
+            var myLock = new AsyncReaderWriterLockSlim();
+
+            myLock.EnterWriteLock();
+
+            myLock.ExitWriteLock();
+            myLock.ExitWriteLock(); // should throw
         }
 
         [TestMethod]
@@ -63,6 +97,7 @@ namespace KPreisser.LockTests
         public void ThrowsOperationCanceledException()
         {
             var myLock = new AsyncReaderWriterLockSlim();
+
             myLock.EnterWriteLock();
             myLock.EnterReadLock(new CancellationToken(true));
         }
@@ -71,6 +106,7 @@ namespace KPreisser.LockTests
         public void CheckMultipleThreads()
         {
             var myLock = new AsyncReaderWriterLockSlim();
+
             myLock.EnterReadLock();
             bool enteredWriteLock = false;
             var t1 = new Thread(() =>
@@ -162,7 +198,6 @@ namespace KPreisser.LockTests
             var threadC = new Thread(() =>
             {
                 myLock.EnterReadLock();
-
             });
             threadC.Start();
 
