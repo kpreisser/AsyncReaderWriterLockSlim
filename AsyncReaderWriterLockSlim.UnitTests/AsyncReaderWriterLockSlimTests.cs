@@ -103,7 +103,7 @@ namespace KPreisser.LockTests
                 // Should throw without entering the lock.
                 myLock.EnterReadLock(new CancellationToken(true));
             }
-            catch
+            catch (OperationCanceledException)
             {
                 // Check that the read lock actually was not entered.
                 Assert.IsTrue(myLock.TryEnterWriteLock(0));
@@ -127,7 +127,7 @@ namespace KPreisser.LockTests
                     myLock.EnterWriteLock(cts.Token);
                 }
             }
-            catch
+            catch (OperationCanceledException)
             {
                 // Check that we can now enter another read lock.
                 Assert.IsTrue(myLock.TryEnterReadLock(0));
