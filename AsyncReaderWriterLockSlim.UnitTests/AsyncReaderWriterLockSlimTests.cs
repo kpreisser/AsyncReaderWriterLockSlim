@@ -137,6 +137,82 @@ namespace KPreisser.LockTests
         }
 
         [TestMethod]
+        public async Task CheckWriteTakesPriorityOverRead1()
+        {
+            var myLock = new AsyncReaderWriterLockSlim();
+
+            // Check that no new read lock can be entered when another thread/task wants
+            // to enter the write lock while at least one read lock is active.
+            myLock.EnterReadLock();
+
+            using (var cts = new CancellationTokenSource())
+            {
+                var enterWriteLockTask = myLock.EnterWriteLockAsync(cts.Token);
+
+                Assert.IsFalse(await myLock.TryEnterReadLockAsync(0));
+
+                cts.Cancel();
+                try
+                {
+                    await enterWriteLockTask;
+                    Assert.Fail();
+                }
+                catch (OperationCanceledException)
+                {
+                }
+            }
+
+            // Verify that now a new read lock can be entered.
+            Assert.IsTrue(await myLock.TryEnterReadLockAsync(0));
+        }
+
+        [TestMethod]
+        public async Task CheckWriteTakesPriorityOverRead2()
+        {
+            var myLock = new AsyncReaderWriterLockSlim();
+
+            // Check that when at least one thread/task wants to enter the read lock and at least
+            // one thread/task wants to enter the write lock while another write lock is active,
+            // writers always get precedence over readers when the existing write lock is released.
+            for (int i = 0; i < 1000; i++)
+            {
+                myLock.EnterWriteLock();
+
+                var readLockTask = myLock.EnterReadLockAsync();
+                var writeLockTask = myLock.EnterWriteLockAsync();
+
+                // Release the current write lock. Now the writeLockTask should complete.
+                myLock.ExitWriteLock();
+                await writeLockTask;
+
+                // After releasing the second write lock, the readLockTask should complete.
+                myLock.ExitWriteLock();
+                await readLockTask;
+                myLock.ExitReadLock();
+            }
+        }
+
+        [TestMethod]
+        public async Task CheckReleasingOneOfTwoReadLocksDoesNotReleaseWaitingWriteAndReadLocks()
+        {
+            var myLock = new AsyncReaderWriterLockSlim();
+
+            await myLock.EnterReadLockAsync();
+            await myLock.EnterReadLockAsync();
+
+            var writeLockTask = myLock.TryEnterWriteLockAsync(500);
+            var readLockTask = myLock.TryEnterReadLockAsync(300);
+
+            // When releasing one of the two read locks, the waiting write lock should not
+            // be released, and also the waiting read lock should not be released because of
+            // the waiting write lock.
+            myLock.ExitReadLock();
+
+            Assert.IsFalse(await readLockTask);
+            Assert.IsFalse(await writeLockTask);
+        }
+
+        [TestMethod]
         public void CheckMultipleThreads()
         {
             var myLock = new AsyncReaderWriterLockSlim();
