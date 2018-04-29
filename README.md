@@ -94,7 +94,7 @@ This implementation has the following differences to Nito.AsyncEx'
 	This means e.g. synchronous methods will still work even
 	if the ThreadPool (used for async task continuations) is currently exhausted.
   * The lock is not *fair* ([just as the underlying `SemaphoreSlim`](https://github.com/dotnet/corefx/issues/13584)),
-    which means there is no guarantee in which order threads (or tasks) will acquire the lock (if
+    which means there is no guarantee in which order threads will acquire the lock (e.g. if
     multiple threads want to get a write lock at the same time using synchronous methods).<br>
 	Fairness can actually lead to problems like lock convoys, and shouldn't be needed in most cases.
   * Consider the following scenario: Thread A holds a read lock. During that time, Thread B tries to
