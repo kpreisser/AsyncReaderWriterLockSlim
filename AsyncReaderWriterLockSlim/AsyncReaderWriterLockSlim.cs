@@ -94,14 +94,6 @@ namespace KPreisser
         {
         }
 
-        /// <summary>
-        /// 
-        /// </summary>
-        ~AsyncReaderWriterLockSlim()
-        {
-            Dispose(false);
-        }
-
 
         private static int GetRemainingTimeout(int millisecondsTimeout, int initialTickCount)
         {
