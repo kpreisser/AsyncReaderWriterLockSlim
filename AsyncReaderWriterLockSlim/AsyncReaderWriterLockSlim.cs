@@ -95,11 +95,11 @@ namespace KPreisser
         }
 
 
-        private static int GetRemainingTimeout(int millisecondsTimeout, int initialTickCount)
+        private static int GetRemainingTimeout(int millisecondsTimeout, long initialTicks)
         {
             return millisecondsTimeout == Timeout.Infinite ? Timeout.Infinite :
-                    (int)Math.Max(0, millisecondsTimeout - unchecked(
-                        (uint)(Environment.TickCount - initialTickCount)));
+                    (int)Math.Max(0, millisecondsTimeout -
+                        (TimeUtils.GetTimestampTicks(true) - initialTicks) / 10000);
         }
 
 
@@ -266,8 +266,8 @@ namespace KPreisser
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            int initialTickCount = millisecondsTimeout == Timeout.Infinite ? 0 :
-                    Environment.TickCount;
+            long initialTicks = millisecondsTimeout == Timeout.Infinite ? 0 :
+                    TimeUtils.GetTimestampTicks(true);
 
             // Enter the write lock semaphore before doing anything else.
             if (!EnterWriteLockPreface(out bool waitForReadLocks))
@@ -297,7 +297,7 @@ namespace KPreisser
                 {
                     // This may throw an OperationCanceledException.
                     waitResult = this.readLockReleaseSemaphore.Wait(
-                            GetRemainingTimeout(millisecondsTimeout, initialTickCount),
+                            GetRemainingTimeout(millisecondsTimeout, initialTicks),
                             cancellationToken);
                 }
                 finally
@@ -339,8 +339,8 @@ namespace KPreisser
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            int initialTickCount = millisecondsTimeout == Timeout.Infinite ? 0 :
-                    Environment.TickCount;
+            long initialTicks = millisecondsTimeout == Timeout.Infinite ? 0 :
+                    TimeUtils.GetTimestampTicks(true);
 
             // Enter the write lock semaphore before doing anything else.
             if (!EnterWriteLockPreface(out bool waitForReadLocks))
@@ -370,7 +370,7 @@ namespace KPreisser
                 {
                     // This may throw an OperationCanceledException.
                     waitResult = await this.readLockReleaseSemaphore.WaitAsync(
-                            GetRemainingTimeout(millisecondsTimeout, initialTickCount),
+                            GetRemainingTimeout(millisecondsTimeout, initialTicks),
                             cancellationToken);
                 }
                 finally
