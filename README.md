@@ -50,6 +50,15 @@ Additionally, the `AsyncReaderWriterLockSlimExtension` class contains extension 
 that return an `IDisposable` so that the lock can be used with a `using` block.
 
 
+## Performance Considerations
+
+When using the `AsyncReaderWriterLockSlim` for *write mode* locks only, performance is
+significantly slower than simply using a
+[`SemaphoreSlim`](https://docs.microsoft.com/en-us/dotnet/api/system.threading.semaphoreslim)
+due to the additional overhead. Therefore, use the `AsyncReaderWriterLockSlim` only
+when there are far more readers than writers.
+
+
 ## Differences to ReaderWriterLockSlim
 
 This implementation has the following differences to .NET's
@@ -105,7 +114,6 @@ This implementation has the following differences to Nito.AsyncEx'
 	In contrast, with Nito.AsyncEx' `AsyncReaderWriterLock`, Thread C will not enter the read lock in this situation.
 	Such an issue also existed in .NET's `ReaderWriterLockSlim`
 	[prior to .NET Framework 4.7.1](https://github.com/Microsoft/dotnet/blob/master/releases/net471/dotnet471-changes.md#bcl).
-
 
 
 ## Additional Infos
