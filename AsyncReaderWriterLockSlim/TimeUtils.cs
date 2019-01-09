@@ -8,6 +8,31 @@ namespace KPreisser
 {
     internal static partial class TimeUtils
     {
+        private static readonly bool isQueryUnbiasedInterruptTimeAvailable;
+
+
+        static TimeUtils()
+        {
+            // If we are running on Windows, check if we can use the
+            // QueryUnbiasedInterruptTime API.
+#if !NET45
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
+#else
+            if (true) {
+#endif
+                try {
+                    if (NativeMethodsWindows.QueryUnbiasedInterruptTime(out long unused)) {
+                        // OK, API is useable.
+                        isQueryUnbiasedInterruptTimeAvailable = true;
+                    }
+                }
+                catch {
+                    // Ignore.
+                }
+            }
+        }
+
+
         /// <summary>
         /// Gets a timestamp in DateTime Ticks that contains the time elapsed since the
         /// system has started, or (if <paramref name="unbiased"/> is <c>true</c>) the time
@@ -18,9 +43,10 @@ namespace KPreisser
         {
             if (unbiased) {
 #if !NET45
-                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) {
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows) &&
+                        isQueryUnbiasedInterruptTimeAvailable) {
 #else
-                if (true) {
+                if (isQueryUnbiasedInterruptTimeAvailable) {
 #endif
                     // On Windows, we need to use QueryUnbiasedInterruptTime, because
                     // Environment.TickCount/GetTickCount64 and QueryPerformanceCounter will
