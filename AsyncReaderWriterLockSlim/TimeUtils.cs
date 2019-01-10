@@ -52,6 +52,8 @@ namespace KPreisser
                     // Environment.TickCount/GetTickCount64 and QueryPerformanceCounter will
                     // return the biased time (including the time the system has spent
                     // in standby/hibernation).
+                    // This is also done in .NET Core:
+                    // https://source.dot.net/#System.Private.CoreLib/src/System/Threading/Timer.cs,67
                     if (!NativeMethodsWindows.QueryUnbiasedInterruptTime(out long timestamp))
                         throw new InvalidOperationException(); // Should not happen
 
@@ -63,6 +65,15 @@ namespace KPreisser
                 }
             }
 
+            // Note: On Windows, Stopwatch.GetTimestamp() uses QueryPerformanceCounter (QPC)
+            // which doesn't overflow in less than 100 years, according to the documentation.
+            // See:
+            // https://docs.microsoft.com/en-us/windows/desktop/SysInfo/acquiring-high-resolution-time-stamps
+            // We need to calculate with doubles so that it is accurate, because when using long the
+            // result would either be inaccurate (when you first divide frequency by 1000, the decimal
+            // places would be cut off), or an overflow could occur (if you multiply first
+            // GetTimestamp() with 1000).
+            // This aligns with the implementation of Stopwatch.ElapsedMilliseconds.
             return (long)(10000000d * unchecked((ulong)Stopwatch.GetTimestamp()) / Stopwatch.Frequency);
         }
     }
