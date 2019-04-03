@@ -21,7 +21,7 @@ namespace KPreisser
             if (true) {
 #endif
                 try {
-                    if (NativeMethodsWindows.QueryUnbiasedInterruptTime(out long unused)) {
+                    if (NativeMethodsWindows.QueryUnbiasedInterruptTime(out _)) {
                         // OK, API is useable.
                         isQueryUnbiasedInterruptTimeAvailable = true;
                     }
