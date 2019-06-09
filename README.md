@@ -107,22 +107,15 @@ This implementation has the following differences to Nito.AsyncEx'
     which means there is no guarantee in which order threads will acquire the lock (e.g. if
     multiple threads want to get a write lock at the same time using synchronous methods).<br>
 	Fairness can actually lead to problems like lock convoys, and shouldn't be needed in most cases.
-  * Consider the following scenario: Thread A holds a read lock. During that time, Thread B tries to
-    get a write lock but cancels the wait operation after a specific time (e.g. by specifying a
-	timeout or using a `CancellationToken`). Before Thread B cancels the wait operation, Thread C tries to
-	enter a read lock (which has to wait until no other write lock is active or waiting to be acquired).
-	Now, after Thread B cancels the wait operation, Thread C will correctly enter the read lock. <br>
-	In contrast, with Nito.AsyncEx' `AsyncReaderWriterLock`, Thread C will not enter the read lock in this situation.
-	Such an issue also existed in .NET's `ReaderWriterLockSlim`
-	[prior to .NET Framework 4.7.1](https://github.com/Microsoft/dotnet/blob/master/releases/net471/dotnet471-changes.md#bcl).
 
 
 ## Additional Infos
 
+Note: The supported maximum number of concurrent locks in **read mode** is limited to `int.MaxValue` (2147483647).
+
 The lock internally uses
 [`SemaphoreSlim`](https://docs.microsoft.com/en-us/dotnet/api/system.threading.semaphoreslim)
 to implement wait functionality.
-
 
 ## API Surface
 

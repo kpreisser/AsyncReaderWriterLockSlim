@@ -52,20 +52,6 @@ namespace KPreisser.LockTests
 
         [TestMethod]
         [ExpectedException(typeof(InvalidOperationException))]
-        public void ThrowsOnIncorrectReadLockRelease()
-        {
-            var myLock = new AsyncReaderWriterLockSlim();
-
-            myLock.EnterReadLock();
-            myLock.EnterReadLock();
-
-            myLock.ExitReadLock();
-            myLock.ExitReadLock();
-            myLock.ExitReadLock(); // should throw
-        }
-
-        [TestMethod]
-        [ExpectedException(typeof(InvalidOperationException))]
         public void ThrowsOnIncorrectWriteLockRelease()
         {
             var myLock = new AsyncReaderWriterLockSlim();
