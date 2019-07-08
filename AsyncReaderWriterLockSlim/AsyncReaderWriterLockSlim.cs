@@ -531,7 +531,7 @@ namespace KPreisser
                 }
                 else if (existingLockState.StateIsReleased)
                 {
-                    // Need to release the read lock since we do not want to it
+                    // Need to release the read lock since we do not want to take it
                     // (because a OperationCanceledException might have been thrown).
                     ExitReadLockCore(getLock: false);
                 }
