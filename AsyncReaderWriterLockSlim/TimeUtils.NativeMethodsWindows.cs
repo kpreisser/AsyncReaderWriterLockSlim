@@ -6,7 +6,7 @@ namespace KPreisser
     {
         private static class NativeMethodsWindows
         {
-            [DllImport("kernel32", EntryPoint = "QueryUnbiasedInterruptTime", ExactSpelling = true)]
+            [DllImport("kernel32.dll", EntryPoint = "QueryUnbiasedInterruptTime", ExactSpelling = true)]
             public static extern bool QueryUnbiasedInterruptTime(out long value);
         }
     }
